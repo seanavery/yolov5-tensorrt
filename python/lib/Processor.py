@@ -38,12 +38,27 @@ class Processor():
     def detect(self, img):
         img = self.pre_process(img)
         print('pre processed img', img)
+        output = self.inference(img)
         return img
 
     def pre_process(self, img):
-        print('img shape 0', img.shape)
         img = cv2.resize(img, (640, 640)) 
         img = img.transpose((2, 0, 1))
         img = np.ascontiguousarray(img)
         return img
+    
+    def inference(self, img):
+        self.inputs[0]['host'] = img
+
+        for inp in self.inputs:
+            print('inp', inp)
+            cuda.memcpy_htod_async(inp['device'], inp['host'], self.stream)
+
+        self.context.execute_async_v2(
+            bindings=self.bindings,
+            stream_handle=self.stream.handle)
+
+        for out in self.outputs:
+            print('out', out)
+            cuda.memcpy_dtoh_async(out['host'], out['device'], self.stream)
 
