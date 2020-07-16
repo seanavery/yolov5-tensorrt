@@ -32,3 +32,7 @@ if __name__ == '__main__':
 
         engine = builder.build_cuda_engine(network)
         print('engine', engine)
+
+        with open('yolov5s-simple-2.trt', 'wb') as f:
+            f.write(engine.serialize())
+
