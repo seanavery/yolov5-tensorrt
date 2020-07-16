@@ -1,6 +1,8 @@
 import tensorrt as trt
 import pycuda.autoinit
 import pycuda.driver as cuda
+import cv2
+import numpy as np
 
 class Processor():
     def __init__(self):
@@ -37,4 +39,14 @@ class Processor():
         self.stream = stream
     
     def detect(self, img):
+        img = self.pre_process(img)
+        print('pre processed img', img)
         return img
+
+    def pre_process(self, img):
+        img = cv2.resize(img, (640, 640)) 
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = img.transpose((2, 0, 1)).astype(np.float32)
+        img /= 255.0
+        return img
+
