@@ -7,7 +7,7 @@ import numpy as np
 class Processor():
     def __init__(self):
         logger = trt.Logger(trt.Logger.INFO)
-        model = 'models/yolov5s-simple.trt'
+        model = 'models/yolov5s-simple-2.trt'
 
         with open(model, 'rb') as f, trt.Runtime(logger) as runtime:
             engine = runtime.deserialize_cuda_engine(f.read())
@@ -17,12 +17,9 @@ class Processor():
         # allocate memory
         inputs, outputs, bindings = [], [], []
         stream = cuda.Stream()
-        print('stream', stream)
         for binding in engine:
-            print('binding', binding)
             size = trt.volume(engine.get_binding_shape(binding)) # * \
                    # engine.max_batch_size
-            print('size', size)
             dtype = trt.nptype(engine.get_binding_dtype(binding))
             host_mem = cuda.pagelocked_empty(size, dtype)
             device_mem = cuda.mem_alloc(host_mem.nbytes)
@@ -44,9 +41,9 @@ class Processor():
         return img
 
     def pre_process(self, img):
+        print('img shape 0', img.shape)
         img = cv2.resize(img, (640, 640)) 
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img = img.transpose((2, 0, 1)).astype(np.float32)
-        img /= 255.0
+        img = img.transpose((2, 0, 1))
+        img = np.ascontiguousarray(img)
         return img
 
