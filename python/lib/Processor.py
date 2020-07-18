@@ -29,6 +29,7 @@ class Processor():
             if engine.binding_is_input(binding):
                 inputs.append({ 'host': host_mem, 'device': device_mem })
             else:
+                print('output name', binding)
                 outputs.append({ 'host': host_mem, 'device': device_mem })
             
         # save to class
@@ -83,18 +84,50 @@ class Processor():
         return [out['host'] for out in self.outputs]
 
     def post_process(self, outputs, img):
-        reshaped_outputs = []
-        for output, shape in zip(outputs, self.output_shapes):
-            print("output, shape", output.shape, shape)
-            reshaped_outputs.append(output.reshape(shape))
-
-        print('reshaped_outputs', reshaped_outputs[0].shape, reshaped_outputs[1].shape, reshaped_outputs[2].shape)
-        processed_outputs = []
-        for output in reshaped_outputs:
-            processed_outputs.append(self.reshape(output))
-
-        boxes, categories, confidences = self.process_outputs(processed_outputs)
+        print('outputs[0]', outputs[0].shape)
+        print('outputs[1]', outputs[1].shape)
+        print('outputs[2]', outputs[2].shape)
         
+        # convert flattened tensor to 1 * 3 * 80 * 80 * 85
+        # reshaped_output = outputs[0].reshape(1, 3, 80, 80, 85)
+
+        # print("reshaped output", reshaped_output.shape)
+        
+        reshaped_output = outputs[0].reshape(1, 19200, 85)
+        print("reshaped_output", reshaped_output.shape)
+
+        nc = reshaped_output.shape[2] - 5
+        print('nc', nc)
+
+        for x in reshaped_output:
+            print('x', x.shape)
+            box = self.xywh2xyxy(x[:, :4])
+            print('box', box)
+
+    def xywh2xyxy(self, x):
+        y = np.zeros_like(x)
+        y[:, 0] = x[:, 0] - x[:, 2] / 2  # top left x
+        y[:, 1] = x[:, 1] - x[:, 3] / 2  # top left y
+        y[:, 2] = x[:, 0] + x[:, 2] / 2  # bottom right x
+        y[:, 3] = x[:, 1] + x[:, 3] / 2  # bottom right y
+        return y
+
+       # reshaped_outputs = []
+       # for output, shape in zip(outputs, self.output_shapes):
+       #     print("output, shape", output.shape, shape)
+       #     reshaped_outputs.append(output.reshape(shape))
+       # 
+       # for output in reshaped_outputs:
+       #     nc = output.shape[3]
+       #     print('nc here', nc)
+
+        # print('reshaped_outputs', reshaped_outputs[0].shape, reshaped_outputs[1].shape, reshaped_outputs[2].shape)
+        # processed_outputs = []
+        # for output in reshaped_outputs:
+        #     processed_outputs.append(self.reshape(output))
+
+        # boxes, categories, confidences = self.process_outputs(processed_outputs)
+        # 
         sys.exit()
         self.non_max_supression(reshaped_outputs)
 
@@ -141,5 +174,9 @@ class Processor():
 
     
         sys.exit()
+
+
+    def process_outputs(self, outputs):
+        return True, True, True
         
 
