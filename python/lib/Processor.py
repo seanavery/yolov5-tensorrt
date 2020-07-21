@@ -45,6 +45,8 @@ class Processor():
                 (1, filters, 80, 80),
                 (1, filters, 40, 40),
                 (1, filters, 20, 20)]
+
+        self.strides = np.array([8., 16., 32.])
     
         anchors = np.array([
             [[116,90], [156,198], [373,326]],
@@ -127,21 +129,23 @@ class Processor():
 
         print('self.anchors.shape', self.anchors.shape)
         print('self.anchor_grid.shape', self.anchor_grid.shape)
-        sys.exit()
-        
+
+        z = []
         for i, output in enumerate(transposed):
-            print('output shape', output.shape[2:4])
+            print('output shape', output.shape)
             y = self.sigmoid_v(output)
-            print('normalized shape', y.shape)
             print('self.anchors shape', self.anchors.shape)
+            # print('y', y)
             
-            y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + grids[i])
-            print('y here', y.shape)
-            sys.exit()
-            
+            y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + grids[i]) * self.strides[i] # xy
+            y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i] # wh
 
-            print('box_xy', box_xy)
+            z.append(y.reshape(1, -1, self.no))
+        print('z shaped', np.concatenate(z,1))
+        sys.exit()
+        ret = (np.concatenate(z, 1), transposed)
 
+        print('ret', ret)
         sys.exit()
 
     # create meshgrid as seen in yolov5 pytorch implementation 
