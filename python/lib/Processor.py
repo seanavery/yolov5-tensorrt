@@ -46,18 +46,26 @@ class Processor():
                 (1, filters, 40, 40),
                 (1, filters, 20, 20)]
     
-        self.anchors = np.array([
+        anchors = np.array([
             [[116,90], [156,198], [373,326]],
             [[30,61], [62,45], [59,119]],
             [[10,13], [16,30], [33,23]],
 
         ])
 
-        self.nl = len(self.anchors)
+        
+        self.nl = len(anchors)
         self.nc = 80 # classes
         self.no = self.nc + 5 # outputs per anchor
-        self.na = len(self.anchors[0])
+        self.na = len(anchors[0])
+        print('nl', self.nl)
+        print("na", self.na)
 
+        a = anchors.copy().astype(np.float32)
+        a = a.reshape(self.nl, -1, 2)
+
+        self.anchors = a.copy()
+        self.anchor_grid = a.copy().reshape(self.nl, 1, -1, 1, 1, 2)
 
     def detect(self, img):
         shape_orig_WH = (img.shape[1], img.shape[0])
@@ -117,7 +125,9 @@ class Processor():
             output = output.reshape(bs, self.na, self.no, ny, nx)
             transposed.append(output.transpose(0, 1, 3, 4, 2))
 
-        print('transposed', transposed)
+        print('self.anchors.shape', self.anchors.shape)
+        print('self.anchor_grid.shape', self.anchor_grid.shape)
+        sys.exit()
         
         for i, output in enumerate(transposed):
             print('output shape', output.shape[2:4])
