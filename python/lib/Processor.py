@@ -38,12 +38,25 @@ class Processor():
         self.bindings = bindings
         self.stream = stream
 
-        # post processing c onfig
+        # post processing config
         filters = (80 + 5) * 3
         self.output_shapes = [
                 (1, filters, 80, 80),
                 (1, filters, 40, 40),
                 (1, filters, 20, 20)]
+    
+        self.anchors = [
+            [(116,90), (156,198), (373,326)],
+            [(30,61), (62,45), (59,119)],
+            [(10,13), (16,30), (33,23)],
+
+        ]
+
+        self.nl = len(self.anchors)
+        self.nc = 80 # classes
+        self.no = self.nc + 5 # outputs per anchor
+        self.na = len(self.anchors[0])
+
 
     def detect(self, img):
         shape_orig_WH = (img.shape[1], img.shape[0])
@@ -87,96 +100,15 @@ class Processor():
         print('outputs[0]', outputs[0].shape)
         print('outputs[1]', outputs[1].shape)
         print('outputs[2]', outputs[2].shape)
-        
-        # convert flattened tensor to 1 * 3 * 80 * 80 * 85
-        # reshaped_output = outputs[0].reshape(1, 3, 80, 80, 85)
+        reshaped = outputs[0].reshape(1, 255, 80, 80)
+        bs, _, ny, nx = reshaped.shape
 
-        # print("reshaped output", reshaped_output.shape)
-        
-        reshaped_output = outputs[0].reshape(1, 19200, 85)
-        print("reshaped_output", reshaped_output.shape)
+        print('bs', bs)
+        print('ny', ny)
+        print('nx', nx)
 
-        nc = reshaped_output.shape[2] - 5
-        print('nc', nc)
-
-        for x in reshaped_output:
-            print('x', x.shape)
-            box = self.xywh2xyxy(x[:, :4])
-            print('box', box)
-
-    def xywh2xyxy(self, x):
-        y = np.zeros_like(x)
-        y[:, 0] = x[:, 0] - x[:, 2] / 2  # top left x
-        y[:, 1] = x[:, 1] - x[:, 3] / 2  # top left y
-        y[:, 2] = x[:, 0] + x[:, 2] / 2  # bottom right x
-        y[:, 3] = x[:, 1] + x[:, 3] / 2  # bottom right y
-        return y
-
-       # reshaped_outputs = []
-       # for output, shape in zip(outputs, self.output_shapes):
-       #     print("output, shape", output.shape, shape)
-       #     reshaped_outputs.append(output.reshape(shape))
-       # 
-       # for output in reshaped_outputs:
-       #     nc = output.shape[3]
-       #     print('nc here', nc)
-
-        # print('reshaped_outputs', reshaped_outputs[0].shape, reshaped_outputs[1].shape, reshaped_outputs[2].shape)
-        # processed_outputs = []
-        # for output in reshaped_outputs:
-        #     processed_outputs.append(self.reshape(output))
-
-        # boxes, categories, confidences = self.process_outputs(processed_outputs)
-        # 
-        sys.exit()
-        self.non_max_supression(reshaped_outputs)
-
-    def reshape(self, output):
-        # convert from NCHW to NHWC
-        output = np.transpose(output, [0, 2, 3 , 1])
-        _, height, width, _ = output.shape
-        print('height', height)
-        print('width', width)
-        print('output here', output.shape)
-
-        return np.reshape(output, (height, width, 3, 85))
-    
-
-    def non_max_supression(self, outputs):
-        # number of classes
-        box = outputs[0]
-        scores = outputs[1]
-        indices = outputs[2]
-        print('box_shape', box.shape)
-        print('scores_shape', scores.shape)
-        print('indices_shape', indices.shape)
-
-        print('first box', box[0])
-        print('second box', box[1])
-        print('first score', scores[0])
-        print('second score', scores[1])
-        print('first index', indices[0])
-        print('second index', indices[1])
+        reshaped = reshaped.reshape(bs, self.na, self.no, ny, nx)
+        print('reshaped shape', reshaped.shape)
 
         sys.exit()
-        
-        out_classes, out_scores, out_classes = [], [], []
-        for idx in indices:
-            print('idx', idx)
-            out_classes.append(idx[1])
-            out_scores.append(scores[tuple(idx)])
-            idx_1 = (idx[0], idx[2])
-            out_boxes.append(boxes[idx_1])
-
-        print('out_classes', out_classes)
-        print('out_scores', out_scores)
-        print('out_classes', out_classes)
-
-    
-        sys.exit()
-
-
-    def process_outputs(self, outputs):
-        return True, True, True
-        
 
