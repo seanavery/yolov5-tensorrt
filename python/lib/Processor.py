@@ -46,12 +46,12 @@ class Processor():
                 (1, filters, 40, 40),
                 (1, filters, 20, 20)]
     
-        self.anchors = [
-            [(116,90), (156,198), (373,326)],
-            [(30,61), (62,45), (59,119)],
-            [(10,13), (16,30), (33,23)],
+        self.anchors = np.array([
+            [[116,90], [156,198], [373,326]],
+            [[30,61], [62,45], [59,119]],
+            [[10,13], [16,30], [33,23]],
 
-        ]
+        ])
 
         self.nl = len(self.anchors)
         self.nc = 80 # classes
@@ -113,20 +113,23 @@ class Processor():
             print('ny', ny)
             print('nx', nx)
             grid = self.make_grid(nx, ny)
-            print('grid', grid)
-            print('grid shape', grid.shape)
-            sys.exit()
             grids.append(grid)
             output = output.reshape(bs, self.na, self.no, ny, nx)
             transposed.append(output.transpose(0, 1, 3, 4, 2))
 
         print('transposed', transposed)
         
-        for output in transposed:
+        for i, output in enumerate(transposed):
             print('output shape', output.shape[2:4])
-            normalized = self.sigmoid_v(output)
+            y = self.sigmoid_v(output)
+            print('normalized shape', y.shape)
+            print('self.anchors shape', self.anchors.shape)
             
-            box_xy = normalized[..., 0:2]
+            y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + grids[i])
+            print('y here', y.shape)
+            sys.exit()
+            
+
             print('box_xy', box_xy)
 
         sys.exit()
