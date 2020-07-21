@@ -4,6 +4,7 @@ import tensorrt as trt
 import pycuda.autoinit
 import pycuda.driver as cuda
 import numpy as np
+import math
 
 class Processor():
     def __init__(self):
@@ -100,15 +101,51 @@ class Processor():
         print('outputs[0]', outputs[0].shape)
         print('outputs[1]', outputs[1].shape)
         print('outputs[2]', outputs[2].shape)
-        reshaped = outputs[0].reshape(1, 255, 80, 80)
-        bs, _, ny, nx = reshaped.shape
+        reshaped = []
+        for output, shape in zip(outputs, self.output_shapes):
+            reshaped.append(output.reshape(shape))
 
-        print('bs', bs)
-        print('ny', ny)
-        print('nx', nx)
+        transposed = []
+        grids = []
+        for output in reshaped:
+            bs, _, ny, nx = output.shape
+            print('bs', bs)
+            print('ny', ny)
+            print('nx', nx)
+            grid = self.make_grid(nx, ny)
+            print('grid', grid)
+            print('grid shape', grid.shape)
+            sys.exit()
+            grids.append(grid)
+            output = output.reshape(bs, self.na, self.no, ny, nx)
+            transposed.append(output.transpose(0, 1, 3, 4, 2))
 
-        reshaped = reshaped.reshape(bs, self.na, self.no, ny, nx)
-        print('reshaped shape', reshaped.shape)
+        print('transposed', transposed)
+        
+        for output in transposed:
+            print('output shape', output.shape[2:4])
+            normalized = self.sigmoid_v(output)
+            
+            box_xy = normalized[..., 0:2]
+            print('box_xy', box_xy)
 
         sys.exit()
+
+    # create meshgrid as seen in yolov5 pytorch implementation 
+    def make_grid(self, nx, ny):
+        nx_vec = np.arange(nx)
+        ny_vec = np.arange(ny)
+        print('nx_vec', nx_vec)
+        print('ny_vec', ny_vec)
+        yv, xv = np.meshgrid(ny_vec, nx_vec)
+        grid = np.stack((xv, yv), axis=2)
+        grid = grid.reshape(1, 1, ny, nx, 2)
+        print('grid hre', grid.shape)
+        return grid
+
+    def sigmoid(self, x):
+        return 1 / (1 + math.exp(-x))
+
+    def sigmoid_v(self, array):
+        return np.reciprocal(np.exp(-array) + 1.0)
 
