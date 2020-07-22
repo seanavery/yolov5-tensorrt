@@ -132,9 +132,11 @@ class Processor():
             z.append(y.reshape(1, -1, self.no))
 
         pred = np.concatenate(z, 1)
-        pred = self.nms(pred)
+        pred = self.non_max_suppression(pred)
 
-
+        for i, det in enumerate(pred):
+            print('det shape', det.shape)
+        sys.exit()
 
     # create meshgrid as seen in yolov5 pytorch implementation 
     def make_grid(self, nx, ny):
@@ -151,7 +153,7 @@ class Processor():
     def sigmoid_v(self, array):
         return np.reciprocal(np.exp(-array) + 1.0)
     
-    def nms(self, pred, conf_thres=0.8, iou_thres=0.6, classes=None):
+    def non_max_suppression(self, pred, conf_thres=0.8, iou_thres=0.6, classes=None):
         nc = pred[0].shape[1] - 5
         xc = pred[..., 4] > conf_thres
         print('nc', nc)
@@ -163,7 +165,6 @@ class Processor():
         
         output = [None] * pred.shape[0]
         print('output', output)
-        
         for xi, x in enumerate(pred):
             # only consider thresholded confidences
             x = x[xc[xi]]
@@ -171,10 +172,45 @@ class Processor():
             
             # calcualte confidence (obj_conf * cls_conf)
             x[:, 5:] *= x[:, 4:5]
+
+            # extract boxes
             box = self.xywh2xyxy(x[:, :4])
             print('box', box.shape)
+
+            # create detection matrix n x 6
+            # multi-label option 
+            i, j = (x[:, 5:] > 0.6).nonzero()
+            print('i', i, i.shape)
+            print('j', j, j.shape)
+            x = np.concatenate((box[i], x[i, j + 5, None], j[:, None].astype(np.float32)), 1)
+            print('x', x.shape)
+            sys.exit()
             
-        sys.exit()
+            # take best class only
+            # conf, j = x[:, 5:].max(1, keepdims=True)
+            # print('conf shape', conf.shape, conf)
+            # print('j shape', j.shape, j)
+
+            c = x[:, 5:6] * max_wh
+            print('c', c.shape)
+            boxes, scores = x[:, :4] + c, x[:, 4]  # boxes (offset by class), scores
+            print('boxes', boxes.shape)
+            print('scores', scores.shape)
+            
+            # need to compute nms thresholdling here
+
+            output[xi] = x[[1, 2]]
+
+        return output
+            
+
+    def nms(self, boxes, scores, iou_thres=0.6, max_det=30):
+        if len(boxes) == 0:
+            return []
+        boxes = boxes.astype('float')
+
+        # if i.shape[0] > max_det:
+        #     i = i[:max_det]
 
     def xywh2xyxy(self, x):
         # Convert nx4 boxes from [x, y, w, h] to [x1, y1, x2, y2] where xy1=top-left, xy2=bottom-right
@@ -184,5 +220,3 @@ class Processor():
         y[:, 2] = x[:, 0] + x[:, 2] / 2  # bottom right x
         y[:, 3] = x[:, 1] + x[:, 3] / 2  # bottom right y
         return y
-
-
