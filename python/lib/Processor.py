@@ -68,9 +68,9 @@ class Processor():
         shape_orig_WH = (img.shape[1], img.shape[0])
         resized = self.pre_process(img)
         outputs = self.inference(resized)
-        processed_outputs = self.post_process(outputs, img)
+        outputs = self.post_process(outputs, img)
         
-        return img
+        return outputs
 
     def pre_process(self, img):
         print('original image shape', img.shape)
@@ -136,7 +136,7 @@ class Processor():
 
         for i, det in enumerate(pred):
             print('det shape', det.shape)
-        sys.exit()
+        return pred
 
     # create meshgrid as seen in yolov5 pytorch implementation 
     def make_grid(self, nx, ny):
@@ -184,7 +184,6 @@ class Processor():
             print('j', j, j.shape)
             x = np.concatenate((box[i], x[i, j + 5, None], j[:, None].astype(np.float32)), 1)
             print('x', x.shape)
-            sys.exit()
             
             # take best class only
             # conf, j = x[:, 5:].max(1, keepdims=True)
