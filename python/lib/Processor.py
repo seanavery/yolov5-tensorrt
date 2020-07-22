@@ -8,9 +8,7 @@ import math
 
 class Processor():
     def __init__(self):
-
         print('setting up Yolov5s-simple.trt processor')
-
         # load tensorrt engine
         TRT_LOGGER = trt.Logger(trt.Logger.INFO)
         TRTbin = 'models/yolov5s-simple-2.trt'
@@ -55,13 +53,10 @@ class Processor():
 
         ])
 
-        
         self.nl = len(anchors)
         self.nc = 80 # classes
         self.no = self.nc + 5 # outputs per anchor
         self.na = len(anchors[0])
-        print('nl', self.nl)
-        print("na", self.na)
 
         a = anchors.copy().astype(np.float32)
         a = a.reshape(self.nl, -1, 2)
@@ -119,16 +114,10 @@ class Processor():
         grids = []
         for output in reshaped:
             bs, _, ny, nx = output.shape
-            print('bs', bs)
-            print('ny', ny)
-            print('nx', nx)
             grid = self.make_grid(nx, ny)
             grids.append(grid)
             output = output.reshape(bs, self.na, self.no, ny, nx)
             transposed.append(output.transpose(0, 1, 3, 4, 2))
-
-        print('self.anchors.shape', self.anchors.shape)
-        print('self.anchor_grid.shape', self.anchor_grid.shape)
 
         z = []
         for i, output in enumerate(transposed):
@@ -141,23 +130,19 @@ class Processor():
             y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i] # wh
 
             z.append(y.reshape(1, -1, self.no))
-        print('z shaped', np.concatenate(z,1))
-        sys.exit()
-        ret = (np.concatenate(z, 1), transposed)
 
-        print('ret', ret)
-        sys.exit()
+        pred = np.concatenate(z, 1)
+        pred = self.nms(pred)
+
+
 
     # create meshgrid as seen in yolov5 pytorch implementation 
     def make_grid(self, nx, ny):
         nx_vec = np.arange(nx)
         ny_vec = np.arange(ny)
-        print('nx_vec', nx_vec)
-        print('ny_vec', ny_vec)
         yv, xv = np.meshgrid(ny_vec, nx_vec)
         grid = np.stack((xv, yv), axis=2)
         grid = grid.reshape(1, 1, ny, nx, 2)
-        print('grid hre', grid.shape)
         return grid
 
     def sigmoid(self, x):
@@ -165,4 +150,39 @@ class Processor():
 
     def sigmoid_v(self, array):
         return np.reciprocal(np.exp(-array) + 1.0)
+    
+    def nms(self, pred, conf_thres=0.8, iou_thres=0.6, classes=None):
+        nc = pred[0].shape[1] - 5
+        xc = pred[..., 4] > conf_thres
+        print('nc', nc)
+        print('xc', xc)
+
+        # settings
+        min_wh, max_wh = 2, 4096
+        max_det = 10
+        
+        output = [None] * pred.shape[0]
+        print('output', output)
+        
+        for xi, x in enumerate(pred):
+            # only consider thresholded confidences
+            x = x[xc[xi]]
+            print('x', x.shape)
+            
+            # calcualte confidence (obj_conf * cls_conf)
+            x[:, 5:] *= x[:, 4:5]
+            box = self.xywh2xyxy(x[:, :4])
+            print('box', box.shape)
+            
+        sys.exit()
+
+    def xywh2xyxy(self, x):
+        # Convert nx4 boxes from [x, y, w, h] to [x1, y1, x2, y2] where xy1=top-left, xy2=bottom-right
+        y = np.zeros_like(x)
+        y[:, 0] = x[:, 0] - x[:, 2] / 2  # top left x
+        y[:, 1] = x[:, 1] - x[:, 3] / 2  # top left y
+        y[:, 2] = x[:, 0] + x[:, 2] / 2  # bottom right x
+        y[:, 3] = x[:, 1] + x[:, 3] / 2  # bottom right y
+        return y
+
 
