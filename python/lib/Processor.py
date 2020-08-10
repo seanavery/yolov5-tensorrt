@@ -129,6 +129,9 @@ class Processor():
         return class_grids
 
     def extract_boxes(self, output, conf_thres=0.5):
+        """
+        Extracts boxes (x1, y1, x2, y2)
+        """
         scaled = []
         grids = []
         for out in output:
@@ -140,40 +143,33 @@ class Processor():
         z = []
         for out, grid, stride, anchor in zip(scaled, grids, self.strides, self.anchor_grid):
             _, _, width, height, _ = out.shape
-            # print('out[..., 0:2] before', out[..., 0:2])
-            print('grid', grid.shape)
-            print(grid)
-            print('stride', stride)
-            sys.exit()
             out[..., 0:2] = (out[..., 0:2] * 2. - 0.5 + grid) * stride
-            print('out[..., 0:2]', out[..., 0:2])
-            sys.exit()
             out[..., 2:4] = (out[..., 2:4] * 2) ** 2 * anchor
             out = out.reshape((1, 3 * width * height, 85))
             z.append(out)
         pred = np.concatenate(z, 1)
-       
         xc = pred[..., 4] > conf_thres
-
         pred = pred[xc]
-
         boxes = self.xywh2xyxy(pred[:, :4])
-        print('boxes', boxes.shape)
-        print(boxes)
-
-        sys.exit()
-
         return boxes
 
     def post_process(self, outputs, img):
         return True
     
-    # create meshgrid as seen in yolov5 pytorch implementation 
     def make_grid(self, nx, ny):
+        """
+        Create scaling tensor based on box location
+        Source: https://github.com/ultralytics/yolov5/blob/master/models/yolo.py
+        Arguments
+            nx: x-axis num boxes
+            ny: y-axis num boxes
+        Returns
+            grid: tensor of shape (1, 1, nx, ny, 80)
+        """
         nx_vec = np.arange(nx)
         ny_vec = np.arange(ny)
         yv, xv = np.meshgrid(ny_vec, nx_vec)
-        grid = np.stack((xv, yv), axis=2)
+        grid = np.stack((yv, xv), axis=2)
         grid = grid.reshape(1, 1, ny, nx, 2)
         return grid
 
