@@ -113,6 +113,12 @@ class Processor():
         return [out['host'] for out in self.outputs]
 
     def extract_object_grids(self, output):
+        """
+        Extract objectness grid 
+        (how likely a box is to contain the center of a bounding box)
+        Returns:
+            
+        """
         object_grids = []
         for out in output:
             probs = self.sigmoid_v(out[..., 4:5])
@@ -120,6 +126,12 @@ class Processor():
         return object_grids
 
     def extract_class_grids(self, output):
+        """
+        Extracts class probabilities
+        (the most likely class of a given tile)
+        Returns:
+            class_grids: array len 3 of tensors ( 1, 3, nx, ny, 80)
+        """
         class_grids = []
         for out in output:
             object_probs = self.sigmoid_v(out[..., 4:5])
@@ -130,7 +142,7 @@ class Processor():
 
     def extract_boxes(self, output, conf_thres=0.5):
         """
-        Extracts boxes (x1, y1, x2, y2)
+        Extracts boxes (xywh) -> (x1, y1, x2, y2)
         """
         scaled = []
         grids = []
@@ -151,6 +163,7 @@ class Processor():
         xc = pred[..., 4] > conf_thres
         pred = pred[xc]
         boxes = self.xywh2xyxy(pred[:, :4])
+        print('boxes', boxes)
         return boxes
 
     def post_process(self, outputs, img):
@@ -247,8 +260,6 @@ class Processor():
 
     def xywh2xyxy(self, x):
         # Convert nx4 boxes from [x, y, w, h] to [x1, y1, x2, y2] where xy1=top-left, xy2=bottom-right
-        print('boxes before', x.shape)
-        print('boxes', x.astype(int))
         y = np.zeros_like(x)
         y[:, 0] = x[:, 0] - x[:, 2] / 2  # top left x
         y[:, 1] = x[:, 1] - x[:, 3] / 2  # top left y
