@@ -11,7 +11,7 @@ class Processor():
         print('setting up Yolov5s-simple.trt processor')
         # load tensorrt engine
         TRT_LOGGER = trt.Logger(trt.Logger.INFO)
-        TRTbin = 'models/yolov5s-simple-2.trt'
+        TRTbin = 'models/yolov5s-simple.trt'
         with open(TRTbin, 'rb') as f, trt.Runtime(TRT_LOGGER) as runtime:
             engine = runtime.deserialize_cuda_engine(f.read())
         self.context = engine.create_execution_context()
@@ -28,7 +28,6 @@ class Processor():
             if engine.binding_is_input(binding):
                 inputs.append({ 'host': host_mem, 'device': device_mem })
             else:
-                print('output name', binding)
                 outputs.append({ 'host': host_mem, 'device': device_mem })
             
         # save to class
@@ -39,18 +38,30 @@ class Processor():
 
         # post processing config
         filters = (80 + 5) * 3
+        # self.output_shapes = [
+        #         (1, filters, 80, 80),
+        #         (1, filters, 40, 40),
+        #         (1, filters, 20, 20)]
+
         self.output_shapes = [
-                (1, filters, 80, 80),
-                (1, filters, 40, 40),
-                (1, filters, 20, 20)]
+            (1, 3, 80, 80, 85),
+            (1, 3, 40, 40, 85),
+            (1, 3, 20, 20, 85)
+        ]
 
         self.strides = np.array([8., 16., 32.])
     
-        anchors = np.array([
-            [[116,90], [156,198], [373,326]],
-            [[30,61], [62,45], [59,119]],
-            [[10,13], [16,30], [33,23]],
+        # anchors = np.array([
+        #     [[116,90], [156,198], [373,326]],
+        #     [[30,61], [62,45], [59,119]],
+        #     [[10,13], [16,30], [33,23]],
 
+        # ])
+        
+        anchors = np.array([
+            [[10,13], [16,30], [33,23]],
+            [[30,61], [62,45], [59,119]],
+            [[116,90], [156,198], [373,326]],
         ])
 
         self.nl = len(anchors)
@@ -68,76 +79,95 @@ class Processor():
         shape_orig_WH = (img.shape[1], img.shape[0])
         resized = self.pre_process(img)
         outputs = self.inference(resized)
-        outputs = self.post_process(outputs, img)
-        
-        return outputs
+        # reshape from flat to (1, 3, x, y, 85)
+        reshaped = []
+        for output, shape in zip(outputs, self.output_shapes):
+            reshaped.append(output.reshape(shape))
+        return reshaped
 
     def pre_process(self, img):
         print('original image shape', img.shape)
         img = cv2.resize(img, (640, 640))
-        img = img.transpose((2, 0, 1)).astype(np.float16)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        # img = img.transpose((2, 0, 1)).astype(np.float16)
+        img = img.transpose((2, 0, 1)).astype(np.float32)
         img /= 255.0
         return img
 
     def inference(self, img):
         # copy img to input memory
-        self.inputs[0]['host'] = np.ascontiguousarray(img)
-
+        # self.inputs[0]['host'] = np.ascontiguousarray(img)
+        self.inputs[0]['host'] = np.ravel(img)
         # transfer data to the gpu
         for inp in self.inputs:
             cuda.memcpy_htod_async(inp['device'], inp['host'], self.stream)
-
         # run inference
         self.context.execute_async_v2(
                 bindings=self.bindings,
                 stream_handle=self.stream.handle)
-
         # fetch outputs from gpu
         for out in self.outputs:
             cuda.memcpy_dtoh_async(out['host'], out['device'], self.stream)
-
-
         # synchronize stream
         self.stream.synchronize()
-        
         return [out['host'] for out in self.outputs]
 
-    def post_process(self, outputs, img):
-        print('outputs[0]', outputs[0].shape)
-        print('outputs[1]', outputs[1].shape)
-        print('outputs[2]', outputs[2].shape)
-        reshaped = []
-        for output, shape in zip(outputs, self.output_shapes):
-            reshaped.append(output.reshape(shape))
+    def extract_object_grids(self, output):
+        object_grids = []
+        for out in output:
+            probs = self.sigmoid_v(out[..., 4:5])
+            object_grids.append(probs)
+        return object_grids
 
-        transposed = []
+    def extract_class_grids(self, output):
+        class_grids = []
+        for out in output:
+            object_probs = self.sigmoid_v(out[..., 4:5])
+            class_probs = self.sigmoid_v(out[..., 5:])
+            obj_class_probs = class_probs * object_probs
+            class_grids.append(obj_class_probs)
+        return class_grids
+
+    def extract_boxes(self, output, conf_thres=0.5):
+        scaled = []
         grids = []
-        for output in reshaped:
-            bs, _, ny, nx = output.shape
-            grid = self.make_grid(nx, ny)
+        for out in output:
+            out = self.sigmoid_v(out)
+            _, _, width, height, _ = out.shape
+            grid = self.make_grid(width, height)
             grids.append(grid)
-            output = output.reshape(bs, self.na, self.no, ny, nx)
-            transposed.append(output.transpose(0, 1, 3, 4, 2))
-
+            scaled.append(out)
         z = []
-        for i, output in enumerate(transposed):
-            print('output shape', output.shape)
-            y = self.sigmoid_v(output)
-            print('self.anchors shape', self.anchors.shape)
-            # print('y', y)
-            
-            y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + grids[i]) * self.strides[i] # xy
-            y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i] # wh
-
-            z.append(y.reshape(1, -1, self.no))
-
+        for out, grid, stride, anchor in zip(scaled, grids, self.strides, self.anchor_grid):
+            _, _, width, height, _ = out.shape
+            # print('out[..., 0:2] before', out[..., 0:2])
+            print('grid', grid.shape)
+            print(grid)
+            print('stride', stride)
+            sys.exit()
+            out[..., 0:2] = (out[..., 0:2] * 2. - 0.5 + grid) * stride
+            print('out[..., 0:2]', out[..., 0:2])
+            sys.exit()
+            out[..., 2:4] = (out[..., 2:4] * 2) ** 2 * anchor
+            out = out.reshape((1, 3 * width * height, 85))
+            z.append(out)
         pred = np.concatenate(z, 1)
-        pred = self.non_max_suppression(pred)
+       
+        xc = pred[..., 4] > conf_thres
 
-        for i, det in enumerate(pred):
-            print('det shape', det.shape)
-        return pred
+        pred = pred[xc]
 
+        boxes = self.xywh2xyxy(pred[:, :4])
+        print('boxes', boxes.shape)
+        print(boxes)
+
+        sys.exit()
+
+        return boxes
+
+    def post_process(self, outputs, img):
+        return True
+    
     # create meshgrid as seen in yolov5 pytorch implementation 
     def make_grid(self, nx, ny):
         nx_vec = np.arange(nx)
@@ -152,34 +182,41 @@ class Processor():
 
     def sigmoid_v(self, array):
         return np.reciprocal(np.exp(-array) + 1.0)
+    def exponential_v(self, array):
+        return np.exp(array)
     
-    def non_max_suppression(self, pred, conf_thres=0.8, iou_thres=0.6, classes=None):
+    def non_max_suppression(self, pred, conf_thres=0.1, iou_thres=0.6, classes=None):
+
         nc = pred[0].shape[1] - 5
-        xc = pred[..., 4] > conf_thres
-        print('nc', nc)
-        print('xc', xc)
+        xc = pred[..., 4] > 0.1
 
         # settings
         min_wh, max_wh = 2, 4096
         max_det = 10
         
         output = [None] * pred.shape[0]
-        print('output', output)
         for xi, x in enumerate(pred):
             # only consider thresholded confidences
             x = x[xc[xi]]
-            print('x', x.shape)
+            print('x shape', x.shape)
+            print(x)
             
             # calcualte confidence (obj_conf * cls_conf)
             x[:, 5:] *= x[:, 4:5]
+            print('confidence', x[:, 4])
+
+            print("analyze 0 output")
+            print('x[0][5:]', x[0][5:])
 
             # extract boxes
             box = self.xywh2xyxy(x[:, :4])
+            print('box', box)
             print('box', box.shape)
+            sys.exit()
 
             # create detection matrix n x 6
             # multi-label option 
-            i, j = (x[:, 5:] > 0.6).nonzero()
+            i, j = (x[:, 5:] > 0.01).nonzero()
             print('i', i, i.shape)
             print('j', j, j.shape)
             x = np.concatenate((box[i], x[i, j + 5, None], j[:, None].astype(np.float32)), 1)
@@ -193,12 +230,13 @@ class Processor():
             c = x[:, 5:6] * max_wh
             print('c', c.shape)
             boxes, scores = x[:, :4] + c, x[:, 4]  # boxes (offset by class), scores
-            print('boxes', boxes.shape)
-            print('scores', scores.shape)
+            print('boxes', boxes)
+            print('scores', scores)
             
             # need to compute nms thresholdling here
+            print('x', x.shape)
 
-            output[xi] = x[[1, 2]]
+            output[xi] = x
 
         return output
             
@@ -213,6 +251,8 @@ class Processor():
 
     def xywh2xyxy(self, x):
         # Convert nx4 boxes from [x, y, w, h] to [x1, y1, x2, y2] where xy1=top-left, xy2=bottom-right
+        print('boxes before', x.shape)
+        print('boxes', x.astype(int))
         y = np.zeros_like(x)
         y[:, 0] = x[:, 0] - x[:, 2] / 2  # top left x
         y[:, 1] = x[:, 1] - x[:, 3] / 2  # top left y
