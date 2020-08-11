@@ -117,7 +117,7 @@ class Processor():
         Extract objectness grid 
         (how likely a box is to contain the center of a bounding box)
         Returns:
-            
+            object_grids: list of tensors (1, 3, nx, ny, 1)
         """
         object_grids = []
         for out in output:
@@ -157,16 +157,43 @@ class Processor():
             _, _, width, height, _ = out.shape
             out[..., 0:2] = (out[..., 0:2] * 2. - 0.5 + grid) * stride
             out[..., 2:4] = (out[..., 2:4] * 2) ** 2 * anchor
+
+            out[..., 5:] = out[..., 5:] * out[..., 4]
             out = out.reshape((1, 3 * width * height, 85))
             z.append(out)
         pred = np.concatenate(z, 1)
         xc = pred[..., 4] > conf_thres
         pred = pred[xc]
+        # apply nms
+        self.nms(pred)
+        
         boxes = self.xywh2xyxy(pred[:, :4])
         print('boxes', boxes)
         return boxes
 
-    def post_process(self, outputs, img):
+    def post_process(self, outputs, conf_thres=0.5):
+        scaled = []
+        grids = []
+        for out in outputs:
+            out = self.sigmoid_v(out)
+            _, _, width, height, _ = out.shape
+            grid = self.make_grid(width, height)
+            grids.append(grid)
+            scaled.append(out)
+        z = []
+        for out, grid, stride, anchor in zip(scaled, grids, self.strides, self.anchor_grid):
+            _, _, width, height, _ = out.shape
+            out[..., 0:2] = (out[..., 0:2] * 2. - 0.5 + grid) * stride
+            out[..., 2:4] = (out[..., 2:4] * 2) ** 2 * anchor
+            
+            out = out.reshape((1, 3 * width * height, 85))
+            z.append(out)
+        pred = np.concatenate(z, 1)
+        xc = pred[..., 4] > conf_thres
+        pred = pred[xc]
+        print('pred', pred.shape)
+        self.nms(pred)
+        # boxes = self.xywh2xyxy(pred[:, :4])
         return True
     
     def make_grid(self, nx, ny):
@@ -246,17 +273,16 @@ class Processor():
             print('x', x.shape)
 
             output[xi] = x
-
         return output
-            
 
-    def nms(self, boxes, scores, iou_thres=0.6, max_det=30):
-        if len(boxes) == 0:
-            return []
-        boxes = boxes.astype('float')
+    def nms(self, pred, iou_thres=0.6):
+        boxes = self.xywh2xyxy(pred)
+        # best class only
+        confs = np.amax(pred[:, 5:], 1, keepdims=True)
+        classes = np.argmax(pred[:, 5:], axis=-1)
+        pred = np.concatenate(boxes, confs, classes)
+        return pred
 
-        # if i.shape[0] > max_det:
-        #     i = i[:max_det]
 
     def xywh2xyxy(self, x):
         # Convert nx4 boxes from [x, y, w, h] to [x1, y1, x2, y2] where xy1=top-left, xy2=bottom-right
