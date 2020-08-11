@@ -100,7 +100,7 @@ class Visualizer():
                     if mc > conf_thres:
                         print('mc', mc)
                         print('mci', mci) 
-                        cv2.rectangle(copy, (xi * px_step, yi * px_step), ((xi + 1) * px_step, (yi + 1) * px_step), self.color_list[int(mci[0])], -1)
+                        cv2.rectangle(copy, (yi * px_step, xi * px_step), ((yi + 1) * px_step, (xi + 1) * px_step), self.color_list[int(mci[0])], -1)
                                
             cv2.imshow(window_name, copy)
             cv2.waitKey(1000) 
