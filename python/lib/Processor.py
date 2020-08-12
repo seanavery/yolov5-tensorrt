@@ -168,6 +168,16 @@ class Processor():
         return boxes
 
     def post_process(self, outputs, conf_thres=0.5):
+        """
+        Transforms raw output into boxes, confs, classes
+        Applies NMS thresholding on bounding boxes and confs
+        Parameters:
+            output: raw output tensor
+        Returns:
+            boxes: x1,y1,x2,y2 tensor (dets, 4)
+            confs: class * obj prob tensor (dets, 1) 
+            classes: class type tensor (dets, 1)
+        """
         scaled = []
         grids = []
         for out in outputs:
