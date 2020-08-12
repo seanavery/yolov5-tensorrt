@@ -158,17 +158,13 @@ class Processor():
             out[..., 0:2] = (out[..., 0:2] * 2. - 0.5 + grid) * stride
             out[..., 2:4] = (out[..., 2:4] * 2) ** 2 * anchor
 
-            out[..., 5:] = out[..., 5:] * out[..., 4]
+            out[..., 5:] = out[..., 4:5] * out[..., 5:]
             out = out.reshape((1, 3 * width * height, 85))
             z.append(out)
         pred = np.concatenate(z, 1)
         xc = pred[..., 4] > conf_thres
         pred = pred[xc]
-        # apply nms
-        self.nms(pred)
-        
         boxes = self.xywh2xyxy(pred[:, :4])
-        print('boxes', boxes)
         return boxes
 
     def post_process(self, outputs, conf_thres=0.5):
@@ -191,10 +187,7 @@ class Processor():
         pred = np.concatenate(z, 1)
         xc = pred[..., 4] > conf_thres
         pred = pred[xc]
-        print('pred', pred.shape)
-        self.nms(pred)
-        # boxes = self.xywh2xyxy(pred[:, :4])
-        return True
+        return self.nms(pred)
     
     def make_grid(self, nx, ny):
         """
@@ -221,67 +214,38 @@ class Processor():
     def exponential_v(self, array):
         return np.exp(array)
     
-    def non_max_suppression(self, pred, conf_thres=0.1, iou_thres=0.6, classes=None):
-
-        nc = pred[0].shape[1] - 5
-        xc = pred[..., 4] > 0.1
-
-        # settings
-        min_wh, max_wh = 2, 4096
-        max_det = 10
-        
-        output = [None] * pred.shape[0]
-        for xi, x in enumerate(pred):
-            # only consider thresholded confidences
-            x = x[xc[xi]]
-            print('x shape', x.shape)
-            print(x)
-            
-            # calcualte confidence (obj_conf * cls_conf)
-            x[:, 5:] *= x[:, 4:5]
-            print('confidence', x[:, 4])
-
-            print("analyze 0 output")
-            print('x[0][5:]', x[0][5:])
-
-            # extract boxes
-            box = self.xywh2xyxy(x[:, :4])
-            print('box', box)
-            print('box', box.shape)
-            sys.exit()
-
-            # create detection matrix n x 6
-            # multi-label option 
-            i, j = (x[:, 5:] > 0.01).nonzero()
-            print('i', i, i.shape)
-            print('j', j, j.shape)
-            x = np.concatenate((box[i], x[i, j + 5, None], j[:, None].astype(np.float32)), 1)
-            print('x', x.shape)
-            
-            # take best class only
-            # conf, j = x[:, 5:].max(1, keepdims=True)
-            # print('conf shape', conf.shape, conf)
-            # print('j shape', j.shape, j)
-
-            c = x[:, 5:6] * max_wh
-            print('c', c.shape)
-            boxes, scores = x[:, :4] + c, x[:, 4]  # boxes (offset by class), scores
-            print('boxes', boxes)
-            print('scores', scores)
-            
-            # need to compute nms thresholdling here
-            print('x', x.shape)
-
-            output[xi] = x
-        return output
+    def non_max_suppression(self, boxes, confs, classes, iou_thres=0.6):
+        x1 = boxes[:, 0]
+        y1 = boxes[:, 1]
+        x2 = boxes[:, 2]
+        y2 = boxes[:, 3]
+        areas = (x2 - x1 + 1) * (y2 - y1 + 1) 
+        order = confs.flatten().argsort()[::-1]
+        keep = []
+        while order.size > 0:
+            i = order[0]
+            keep.append(i)
+            xx1 = np.maximum(x1[i], x1[order[1:]])
+            yy1 = np.maximum(y1[i], y1[order[1:]])
+            xx2 = np.minimum(x2[i], x2[order[1:]])
+            yy2 = np.minimum(y2[i], y2[order[1:]])
+            w = np.maximum(0.0, xx2 - xx1 + 1)
+            h = np.maximum(0.0, yy2 - yy1 + 1)
+            inter = w * h
+            ovr = inter / (areas[i] + areas[order[1:]] - inter)
+            inds = np.where( ovr <= iou_thres)[0]
+            order = order[inds + 1]
+        boxes = boxes[keep]
+        confs = confs[keep]
+        classes = classes[keep]
+        return boxes, confs, classes
 
     def nms(self, pred, iou_thres=0.6):
-        boxes = self.xywh2xyxy(pred)
+        boxes = self.xywh2xyxy(pred[..., 0:4])
         # best class only
         confs = np.amax(pred[:, 5:], 1, keepdims=True)
         classes = np.argmax(pred[:, 5:], axis=-1)
-        pred = np.concatenate(boxes, confs, classes)
-        return pred
+        return self.non_max_suppression(boxes, confs, classes)
 
 
     def xywh2xyxy(self, x):
