@@ -14,7 +14,6 @@ class Visualizer():
     def gen_colors(self, classes):
         """
             generate unique hues for each class and convert to bgr
-
             classes -- list -- class names (80 for coco dataset)
             -> list
         """
@@ -131,7 +130,6 @@ class Visualizer():
         overlay = img.copy()
         c2 = img.copy()
         px_step = 640 // output.shape[2]
-        print('px_step', px_step)
         x = 0
         while x < 640:
             cv2.line(c2, (0, x), (640, x), color=(0, 255, 0), thickness=1, lineType=cv2.LINE_AA)
@@ -201,6 +199,23 @@ class Visualizer():
     
     def sigmoid_v(self, array):
         return np.reciprocal(np.exp(-array) + 1.0)
+    
+    def draw_results(self, img, boxes, confs, classes):
+        window_name = 'final results'
+        cv2.namedWindow(window_name)
+        overlay = img.copy()
+        final = img.copy()
+        for box, conf, cls in zip(boxes, confs, classes):
+            # draw rectangle
+            x1, y1, x2, y2 = box
+            conf = conf[0]
+            cls = coco[cls]
+            cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 255, 0), -1)
+            # draw text
+            cv2.putText(final, '%s %f' % (cls, conf), org=(x1, int(y1+10)), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.5, color=(255, 255, 255))
+        cv2.addWeighted(overlay, 0.5, final, 1 - 0.5, 0, final)
+        cv2.imshow(window_name, final)
+        cv2.waitKey(10000)
 
     def draw(self, img, pred):
         print('img', img.shape)
