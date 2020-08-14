@@ -64,14 +64,12 @@ class Visualizer():
             for xi in range(width):
                 for yi in range(height):
                     if grid[0][0][xi][yi][0] > conf_thres or grid[0][1][xi][yi][0] > conf_thres or grid[0][2][xi][yi][0] > conf_thres:
-                        print('tile', xi, yi)
                         cv2.rectangle(overlay, (yi * px_step, xi * px_step), ((yi + 1) * px_step, (xi + 1) * px_step), (0, 255, 0), -1)
 
            
             cv2.addWeighted(overlay, 0.5, copy, 1 - 0.5, 0, copy)
-
             cv2.imshow(window_name, copy)
-            cv2.waitKey(1000) 
+            cv2.waitKey(10000)
     
     def draw_class_grid(self, img, grids, conf_thres=0.1):
         """
