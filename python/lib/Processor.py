@@ -6,6 +6,7 @@ import pycuda.autoinit
 import pycuda.driver as cuda
 import numpy as np
 import math
+import time
 
 class Processor():
     def __init__(self):
@@ -16,7 +17,6 @@ class Processor():
         with open(TRTbin, 'rb') as f, trt.Runtime(TRT_LOGGER) as runtime:
             engine = runtime.deserialize_cuda_engine(f.read())
         self.context = engine.create_execution_context()
-        
         # allocate memory
         inputs, outputs, bindings = [], [], []
         stream = cuda.Stream()
@@ -30,49 +30,30 @@ class Processor():
                 inputs.append({ 'host': host_mem, 'device': device_mem })
             else:
                 outputs.append({ 'host': host_mem, 'device': device_mem })
-            
         # save to class
         self.inputs = inputs
         self.outputs = outputs
         self.bindings = bindings
         self.stream = stream
-
         # post processing config
         filters = (80 + 5) * 3
-        # self.output_shapes = [
-        #         (1, filters, 80, 80),
-        #         (1, filters, 40, 40),
-        #         (1, filters, 20, 20)]
-
         self.output_shapes = [
             (1, 3, 80, 80, 85),
             (1, 3, 40, 40, 85),
             (1, 3, 20, 20, 85)
         ]
-
         self.strides = np.array([8., 16., 32.])
-    
-        # anchors = np.array([
-        #     [[116,90], [156,198], [373,326]],
-        #     [[30,61], [62,45], [59,119]],
-        #     [[10,13], [16,30], [33,23]],
-
-        # ])
-        
         anchors = np.array([
             [[10,13], [16,30], [33,23]],
             [[30,61], [62,45], [59,119]],
             [[116,90], [156,198], [373,326]],
         ])
-
         self.nl = len(anchors)
         self.nc = 80 # classes
         self.no = self.nc + 5 # outputs per anchor
         self.na = len(anchors[0])
-
         a = anchors.copy().astype(np.float32)
         a = a.reshape(self.nl, -1, 2)
-
         self.anchors = a.copy()
         self.anchor_grid = a.copy().reshape(self.nl, 1, -1, 1, 1, 2)
 
@@ -103,9 +84,13 @@ class Processor():
         for inp in self.inputs:
             cuda.memcpy_htod_async(inp['device'], inp['host'], self.stream)
         # run inference
+        start = time.time()
         self.context.execute_async_v2(
                 bindings=self.bindings,
                 stream_handle=self.stream.handle)
+        end = time.time()
+        print('execution time:', end-start)
+        sys.exit()
         # fetch outputs from gpu
         for out in self.outputs:
             cuda.memcpy_dtoh_async(out['host'], out['device'], self.stream)
@@ -257,7 +242,6 @@ class Processor():
         confs = np.amax(pred[:, 5:], 1, keepdims=True)
         classes = np.argmax(pred[:, 5:], axis=-1)
         return self.non_max_suppression(boxes, confs, classes)
-
 
     def xywh2xyxy(self, x):
         # Convert nx4 boxes from [x, y, w, h] to [x1, y1, x2, y2] where xy1=top-left, xy2=bottom-right
