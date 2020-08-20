@@ -13,7 +13,9 @@
 - [x] apply nms thresholding on candidate boxes
 - [x] visualize results
 
+___
 
-| model  | input size |  time (ms)   |
+| model  | fp precision  | input size |  time (ms)   |
 | ------------- | ------------- | ----------|
-| small-simple  | 640x640*3  | 15.46 |
+| small-simple  |  32 |  640x640x3  | 15.46 |
+| small-simple  |  16 |  640x640x3  | 9.47  |
