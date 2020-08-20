@@ -13,7 +13,7 @@ class Processor():
         print('setting up Yolov5s-simple.trt processor')
         # load tensorrt engine
         TRT_LOGGER = trt.Logger(trt.Logger.INFO)
-        TRTbin = '{}/models/yolov5s-simple.trt'.format(os.path.dirname(__file__))
+        TRTbin = '{}/models/yolov5s-simple-2.trt'.format(os.path.dirname(__file__))
         with open(TRTbin, 'rb') as f, trt.Runtime(TRT_LOGGER) as runtime:
             engine = runtime.deserialize_cuda_engine(f.read())
         self.context = engine.create_execution_context()
@@ -90,7 +90,6 @@ class Processor():
                 stream_handle=self.stream.handle)
         end = time.time()
         print('execution time:', end-start)
-        sys.exit()
         # fetch outputs from gpu
         for out in self.outputs:
             cuda.memcpy_dtoh_async(out['host'], out['device'], self.stream)
