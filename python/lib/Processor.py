@@ -9,11 +9,11 @@ import math
 import time
 
 class Processor():
-    def __init__(self):
+    def __init__(self, model):
         print('setting up Yolov5s-simple.trt processor')
         # load tensorrt engine
         TRT_LOGGER = trt.Logger(trt.Logger.INFO)
-        TRTbin = '{}/models/yolov5s-simple-2.trt'.format(os.path.dirname(__file__))
+        TRTbin = '{0}/models/{1}'.format(os.path.dirname(__file__), model)
         with open(TRTbin, 'rb') as f, trt.Runtime(TRT_LOGGER) as runtime:
             engine = runtime.deserialize_cuda_engine(f.read())
         self.context = engine.create_execution_context()
