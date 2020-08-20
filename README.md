@@ -15,7 +15,7 @@
 
 ___
 
-| model  | fp precision  | input size |  time (ms)   |
-| ------------- | ------------- | ----------|
-| small-simple  |  32 |  640x640x3  | 15.46 |
-| small-simple  |  16 |  640x640x3  | 9.47  |
+| model  |  fp precision  | input size |  time (ms)   |
+| ------------- | ------------- | ---------- | ---- |
+| small-simple  |  32  |  640x640x3  | 15.46 |
+| small-simple  |  16  |  640x640x3  | 9.47  |
