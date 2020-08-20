@@ -12,3 +12,8 @@
 - [x] post process output (forward pass)
 - [x] apply nms thresholding on candidate boxes
 - [x] visualize results
+
+
+| model  | input size |  time (ms)   |
+| ------------- | ------------- | ----------|
+| small-simple  | 640x640*3  | 15.46 |
