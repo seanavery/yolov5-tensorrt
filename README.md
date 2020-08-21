@@ -6,6 +6,20 @@
 
 `python` code runs numpy/tensorrt implementation on Jetson Nano 
 
+```
+├── python
+│   ├── lib
+|       ├── demo.py
+|       ├── Processor.py
+|       ├── Visualizer.py
+|       ├── classes.py
+|       └── models
+|           ├── yolov5s-simple-32.trt
+|           ├── yolov5s-simple-16.trt
+|           └── yolov5s-simple.onnx
+│   └── export_tensorrt.py
+```
+
 - [x] convert yolov5 onnx model to tensorrt
 - [x] pre-process image 
 - [x] run inference against input using tensorrt engine
