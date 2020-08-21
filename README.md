@@ -19,3 +19,10 @@ ___
 | ------------- | ------------- | ---------- | ---- |
 | small-simple  |  32  |  640x640x3  | 15.46 |
 | small-simple  |  16  |  640x640x3  | 9.47  |
+
+
+____
+
+### Object Probability
+
+![](docs/object_grids.png)
