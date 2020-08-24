@@ -15,14 +15,30 @@
 
 ___
 
+## run demo
+
+```
+python3 demo.py -image=./path/to/image.jpg -model=./path/to/model.trt
+```
+
+___
+
+## performance
+
+```
+for now, only testing initial inference performance
+nms, and post processing are slow rn
+```
+
 | model  |  fp precision  | input size |  time (ms)   |
 | ------------- | ------------- | ---------- | ---- |
 | small-simple  |  32  |  640x640x3  | 15.46 |
 | small-simple  |  16  |  640x640x3  | 9.47  |
 
+___
 
-____
-
-### Object Probability
+## object probability
 
 ![](docs/object_grids.png)
+
+
