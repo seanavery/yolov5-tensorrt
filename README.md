@@ -2,6 +2,8 @@
 
 > port pytorch/onnx yolov5 model to run on a Jetson Nano
 
+![](docs/demo.gif)
+
 `ipynb` is for testing pytorch code and exporting onnx models using Google Colab
 
 `python` code runs numpy/tensorrt implementation on Jetson Nano 
