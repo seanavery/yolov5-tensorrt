@@ -10,10 +10,10 @@ import time
 
 class Processor():
     def __init__(self, model):
-        print('setting up Yolov5s-simple.trt processor')
         # load tensorrt engine
         TRT_LOGGER = trt.Logger(trt.Logger.INFO)
         TRTbin = '{0}/models/{1}'.format(os.path.dirname(__file__), model)
+        print('trtbin', TRTbin)
         with open(TRTbin, 'rb') as f, trt.Runtime(TRT_LOGGER) as runtime:
             engine = runtime.deserialize_cuda_engine(f.read())
         self.context = engine.create_execution_context()
@@ -88,13 +88,13 @@ class Processor():
         self.context.execute_async_v2(
                 bindings=self.bindings,
                 stream_handle=self.stream.handle)
-        end = time.time()
-        print('execution time:', end-start)
-        # fetch outputs from gpu
+       # fetch outputs from gpu
         for out in self.outputs:
             cuda.memcpy_dtoh_async(out['host'], out['device'], self.stream)
         # synchronize stream
         self.stream.synchronize()
+        end = time.time()
+        print('execution time:', end-start)
         return [out['host'] for out in self.outputs]
 
     def extract_object_grids(self, output):
