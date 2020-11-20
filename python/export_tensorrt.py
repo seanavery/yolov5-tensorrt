@@ -8,19 +8,17 @@ converts to tensorrt
 """
 
 def cli():
-    desc = 'compile onnx model to TensorRT'
+    desc = 'compile Onnx model to TensorRT'
     parser = argparse.ArgumentParser(description=desc)
-    print('parser', parser)
-    parser.add_argument('-model', help='onnx file location inside ./lib/models')
-    parser.add_argument('-fp16', help='floating point precision. 16 or 32')
-    parser.add_argument('-output', help='name of trt output file')
+    parser.add_argument('-m', '--model', help='onnx file location inside ./lib/models')
+    parser.add_argument('-fp', '--floatingpoint', type=int, default=32, help='floating point precision. 16 or 32')
+    parser.add_argument('-o', '--output', help='name of trt output file')
     args = parser.parse_args()
     model = args.model or 'yolov5s-simple.onnx'
-    fp = args.fp16 or False
-    if fp:
-        fp='16' 
-    else:
-        fp='32'
+    fp = args.floatingpoint
+    if fp != 16 and fp != 32:
+        print('floating point precision must be 16 or 32')
+        sys.exit()
     output = args.output or 'yolov5s-simple-{}.trt'.format(fp)
     return {
         'model': model,
