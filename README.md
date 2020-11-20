@@ -31,6 +31,24 @@
 
 ___
 
+## compile onnx model to trt
+
+```
+python3 export_tensorrt.py --help
+usage: export_tensorrt.py [-h] [-m MODEL] [-fp FLOATINGPOINT] [-o OUTPUT]
+
+compile Onnx model to TensorRT
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -m MODEL, --model MODEL
+                        onnx file location inside ./lib/models
+  -fp FLOATINGPOINT, --floatingpoint FLOATINGPOINT
+                        floating point precision. 16 or 32
+  -o OUTPUT, --output OUTPUT
+                        name of trt output file
+```
+
 ## run demo
 
 ```
