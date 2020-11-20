@@ -8,12 +8,10 @@ from Visualizer import Visualizer
 def cli():
     desc = 'Run TensorRT yolov5 visualizer'
     parser = argparse.ArgumentParser(description=desc)
-    parser.add_argument('-model',  help='trt engine file located in ./models', required=False)
-    parser.add_argument('-image', help='image file path', required=False)
+    parser.add_argument('-m', '--model', default='yolov5s-simple-32.trt', help='trt engine file located in ./models', required=False)
+    parser.add_argument('-i', '--image', default='sample_720p.jpg', help='image file path', required=False)
     args = parser.parse_args()
-    model = args.model or 'yolov5s-simple.trt'
-    img = args.image or 'sample_720p.jpg'
-    return { 'model': model, 'image': img }
+    return { 'model': args.model, 'image': args.image }
 
 def main():
     # parse arguments
