@@ -52,7 +52,7 @@ optional arguments:
 ## run demo
 
 ```
-python3 demo.py -image=./path/to/image.jpg -model=./path/to/model.trt
+python3 demo.py --image=./path/to/image.jpg --model=./path/to/model.trt
 ```
 
 ___
